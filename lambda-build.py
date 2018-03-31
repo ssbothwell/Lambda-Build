@@ -42,6 +42,7 @@ import yaml
 import subprocess
 from functools import reduce
 
+
 def copy_tree(src, dst, symlinks=False, ignore=None):
     if not os.path.exists(dst):
         os.makedirs(dst)
@@ -123,6 +124,7 @@ def build_package(project: str, args: dict) -> None:
 
     if not os.path.exists(project_path):
         return 'Error: Please enter a valid directory'
+
     if not os.path.exists(f'{project_path}/src'):
         return "Error: Project does not have a valid 'src/' dir"
 
@@ -142,11 +144,11 @@ def build_package(project: str, args: dict) -> None:
     native_path = f'{project_path}/native_libs'
 
     # Copy lambda src to `dist`
-    print('### Copying lambda src to `dist/src` ###')
+    print('### Copying lambda src to `dist/src`...', end='')
     if not os.path.exists(f'{dist_path}/src'):
         os.mkdir(f'{dist_path}/src')
     copy_tree(src_path, f'{dist_path}/src')
-    print('### Complete ###')
+    print('...Complete ###')
 
     # Copy pip modules to `dist`
     if os.path.exists(venv_path):
@@ -212,7 +214,7 @@ def deploy_project(project: str, command: list, interactive: bool) -> None:
         timeout       = str(input("timeout: "))
         memory_size   = str(input("memory-size: "))
 
-        command = ['aws', 'lambda', 
+        command = ['~/.local/bin/aws', 'lambda', 
                    '--region', region,
                    '--function-name', function_name,
                    '--zip-file', zip_file,
