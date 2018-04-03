@@ -12,9 +12,9 @@ or
 `$ build_lambda project_name -s`
 
 ### Package a build
-`$ build_lambda project_name -p`
+`$ build_lambda project_name -b`
 or
-`$ build_lambda project_name --package`
+`$ build_lambda project_name --build`
 
 ### Deploy a build
 `$ build_lambda project_name -d`
