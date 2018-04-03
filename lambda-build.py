@@ -14,9 +14,9 @@ or
 $ build_lambda project_name -s
 
 # Package a build
-$ build_lambda project_name -p
+$ build_lambda project_name -b
 or
-$ build_lambda project_name --package
+$ build_lambda project_name --build
 
 # Deploy a build
 $ build_lambda project_name -d
@@ -77,6 +77,7 @@ def scaffold(project: str) -> None:
    
     # Create config.yaml
     with open(f'{project_path}/config.yaml', 'a') as f:
+        f.write(f'aws-path: ~/.local/bin/aws\n')
         f.write(f'region:\n')
         f.write(f'function-name: {project}\n')
         f.write(f'zip-file: {project}.zip\n')
@@ -180,7 +181,7 @@ def build_package(project: str, args: dict) -> None:
     # Zip new build
     print('### Zipping Build Package...', end='')
     shutil.make_archive(project, 'zip', dist_path)
-    shutil.move(f'./{project}.zip', f'{build_path}/send_images.zip')
+    shutil.move(f'./{project}.zip', f'{build_path}/{project}.zip')
     print('...Complete')
 
 
@@ -191,19 +192,33 @@ def parse_config(config_path: str) -> list:
         except yaml.YAMLError as exc:
             print(exc)
 
+    # Flatten the config_dict into a list
+    # Must be converted to a list because tuple is immutible.
     args = list(reduce(lambda a, b: a + b, config_dict.items()))
-    
-    for i, el in enumerate(args):
-        if i % 2 == 0:
-            args[i] = '--' + el 
 
-    return ['aws', 'lambda'] + args
+    aws_path = None
+    command = []
+    for i, el in enumerate(args):
+        # Peel off aws-path
+        if el == 'aws-path':
+            continue
+        elif args[i-1] == 'aws-path':
+            aws_path = el
+        # Prepend flags and stringify values
+        elif i % 2 == 0:
+            command.append('--' + el)
+        else:
+            command.append(str(args[i]))
+
+    command = [os.path.expanduser(aws_path), 'lambda', 'create-function'] + command
+    return command
 
 
 def deploy_project(project: str, command: list, interactive: bool) -> None:
     """ Deploy project to AWS """
     
     if interactive:
+        aws_path      = str(input("AWS-Path: "))
         region        = str(input("region: "))
         function_name = str(input("function-name: "))
         zip_file      = str(input("zip-file: "))
@@ -214,7 +229,7 @@ def deploy_project(project: str, command: list, interactive: bool) -> None:
         timeout       = str(input("timeout: "))
         memory_size   = str(input("memory-size: "))
 
-        command = ['~/.local/bin/aws', 'lambda', 
+        command = [aws_path, 'lambda', 
                    '--region', region,
                    '--function-name', function_name,
                    '--zip-file', zip_file,
@@ -225,7 +240,7 @@ def deploy_project(project: str, command: list, interactive: bool) -> None:
                    '--timeout', timeout,
                    '--memory-size', memory_size
                   ]
-    
+
     subprocess.call(command)
 
 
@@ -236,6 +251,7 @@ def main() -> None:
     parser.add_argument('project', help='Project Root')
     parser.add_argument('-s', '--scaffold', help='Scaffold a new project', nargs='?', const=True, default=False,)
     parser.add_argument('-d', '--deploy', help='Deploy package to AWS', nargs='?', const=True, default=False)
+    parser.add_argument('-b', '--build', help='build package', nargs='?', const=True, default=False)
     parser.add_argument('-v', '--virtualenv', help='Virtualenv dir', default='venv')
     parser.add_argument('-i', '--interactive', help='Interactive aws cli config', nargs='?', const=True, default=False)
     
@@ -246,7 +262,8 @@ def main() -> None:
         return scaffold(project)
     
     # Generate project.zip
-    build_package(project, args)
+    if args.build:
+        build_package(project, args)
     
     if args.deploy:
         config = parse_config(f'{project}/config.yaml')
